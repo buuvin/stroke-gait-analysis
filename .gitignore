@@ -1,0 +1,22 @@
+
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
+.env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+
+# Data (important for IRB)
+data/
+raw_data/
+
+# Large outputs
+models/
+checkpoints/

@@ -1,0 +1,17 @@
+ipykernel
+pandas
+numpy
+matplotlib
+statsmodels
+scipy
+PyWavelets
+xgboost
+tensorflow
+torch
+torchvision
+scikit-image
+seaborn
+shap
+pyrqa
+teaspoon
+nolds

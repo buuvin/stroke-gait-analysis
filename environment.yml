@@ -1,0 +1,25 @@
+name: stroke-gait
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - ipykernel
+  - pandas
+  - numpy
+  - matplotlib
+  - statsmodels
+  - scipy
+  - pywavelets
+  - xgboost
+  - tensorflow
+  - pytorch
+  - torchvision
+  - scikit-image
+  - seaborn
+  - shap
+  - pip
+  - pip:
+      - pyrqa
+      - teaspoon
+      - nolds

@@ -6,6 +6,7 @@ from pyrqa.metric import EuclideanMetric
 
 from pyrqa.computation import RPComputation
 
+import pandas as pd
 import numpy as np
 import time
 import random
@@ -13,6 +14,35 @@ import csv
 
 import os
 from pathlib import Path
+
+
+def load_optimal_params(optimal_params_file):
+    """
+    Load optimal parameters from CSV into a dictionary for quick lookup.
+    
+    Args:
+        optimal_params_file: path to optimal_params.csv
+    
+    Returns:
+        dict: {(category, affected_side, cop_type, eye_condition, axis): (tau, n, neighborhood)}
+    """
+    df = pd.read_csv(optimal_params_file)
+    params_dict = {}
+    
+    for _, row in df.iterrows():
+        # Create key: (category, affected_side, cop_type, eye_condition, axis)
+        # For healthy, affected_side is empty string
+        key = (
+            row['category'],
+            str(row['affected_side']) if pd.notna(row['affected_side']) else '',
+            row['cop_type'],
+            row['eye'],
+            row['axis']
+        )
+        # Store values: (tau, n, neighborhood)
+        params_dict[key] = (int(row['tau']), int(row['n']), float(row['neighborhood']))
+    
+    return params_dict
 
 def determine_group_from_path(file_path):
     """

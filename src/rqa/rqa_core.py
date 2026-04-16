@@ -7,9 +7,9 @@ from pyrqa.neighbourhood import FixedRadius
 from pyrqa.metric import EuclideanMetric
 from pyrqa.image_generator import ImageGenerator
 
-from src.rqa.rqa_utils import determine_group_from_path
-from src.rqa.metrics import extract_rqa_metrics
-from src.rqa.plotting import generate_rqa_plot
+from rqa.rqa_utils import determine_group_from_path
+from rqa.metrics import calculate_rqa_metrics
+from rqa.plotting import generate_rqa_plot
 
 
 def compute_rqa(file_path, optimal_params_dict, RQA_PLOTS_DIR):
@@ -37,8 +37,8 @@ def compute_rqa(file_path, optimal_params_dict, RQA_PLOTS_DIR):
     tau, n, neighborhood = optimal_params_dict[group]
 
     rqa_settings = compute_rqa_settings(file_path, tau, n, neighborhood)
-
-    rqa_metrics = extract_rqa_metrics(rqa_settings, file_path.name)
+    print(type(rqa_settings))
+    rqa_metrics = calculate_rqa_metrics(rqa_settings, file_path.name)
 
      # Add group information
     rqa_metrics['category'] = category

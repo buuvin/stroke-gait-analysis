@@ -6,10 +6,10 @@ from pathlib import Path
 from teaspoon.parameter_selection.MI_delay import MI_for_delay
 from teaspoon.parameter_selection.FNN_n import FNN_n
 
-from src.paths import SORTED_HEALTHY, SORTED_STROKE, EXTRACTED
-from src.rqa.rqa_utils import find_opt_neighborhood
+from paths import SORTED_HEALTHY, SORTED_STROKE, EXTRACTED
+from rqa.rqa_utils import find_opt_neighborhood
 
-from src.config import RANDOM_SEED
+from config import RANDOM_SEED
 random.seed(RANDOM_SEED)
 np.random.seed(RANDOM_SEED)
 
@@ -244,5 +244,6 @@ def main():
             f"τ={params['tau']:3d} | n={params['n']:2d} | ε={params['neighborhood']:.6f}")
     
 
-if __name__ == "__main__":
-    main()
+#USED FOR TESTING
+# if __name__ == "__main__":
+#     main()

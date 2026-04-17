@@ -2,6 +2,7 @@
 # Python
 __pycache__/
 *.pyc
+*full.yml
 
 # Virtual environments
 venv/
@@ -15,8 +16,18 @@ venv/
 
 # Data (important for IRB)
 data/
-raw_data/
+raw/
+sorted/
+extracted/
+
 
 # Large outputs
 models/
 checkpoints/
+
+
+# Artifacts
+*.egg-info/
+*.egg
+dist/
+build/

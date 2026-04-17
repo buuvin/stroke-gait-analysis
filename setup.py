@@ -17,6 +17,7 @@ setup(
     description="Stroke gait analysis using RQA, classical ML, and CNN pipelines",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
+    py_modules=["paths", "config"],
     include_package_data=True,
     install_requires=read_requirements(),
     python_requires=">=3.10",

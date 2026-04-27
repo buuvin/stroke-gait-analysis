@@ -1,10 +1,28 @@
+"""Frequency-domain feature extraction for COP time-series signals."""
+
 import numpy as np
 from scipy.signal import welch
 
 from features.features_utils import band_power
 
 def extract_frequency_domain_features(data):
-    
+    """Compute spectral features from a one-dimensional COP signal.
+
+    Parameters
+    ----------
+    data : array-like
+        One-dimensional COP signal.
+
+    Returns
+    -------
+    dict
+        Frequency-domain feature values for downstream ML/statistical analysis.
+
+    Notes
+    -----
+    Power spectral density is estimated with Welch's method and limited to the
+    0-5 Hz range used in this project.
+    """
     fs = 100
     freq, psd = welch(
         data,
@@ -13,6 +31,7 @@ def extract_frequency_domain_features(data):
         detrend = 'constant'
     )
 
+    # Restrict analysis to physiologically relevant low-frequency content.
     valid = freq <= 5
     freq = freq[valid]
     psd = psd[valid]
@@ -22,6 +41,7 @@ def extract_frequency_domain_features(data):
     dom_freq = freq[i0:][np.argmax(psd[i0:])]
     mean_freq = np.sum(freq * psd) / np.sum(psd)
     cum_power = np.cumsum(psd)
+    # Median frequency marks the 50% cumulative-power cutoff.
     median_freq = freq[np.where(cum_power >= cum_power[-1] / 2)[0][0]]
 
     band_0p1_0p5 = band_power(freq, psd, 0.1, 0.5)
@@ -35,14 +55,18 @@ def extract_frequency_domain_features(data):
     print("band_power_0.5–1.5 =", band_0p5_1p5)
     print("band_power_1.5-3.0 =", band_1p5_3)
 
+    # Quick QC: summed sub-bands should not exceed total power by much.
     if band_0p1_0p5 + band_0p5_1p5 + band_1p5_3 > total_power * 1.05:
         print("WARN: bands exceed total power (check bands / freq range)")
 
+    # log1p keeps the ratio numerically stable when high-band power is tiny.
     low_high_ratio = np.log1p(band_0p1_0p5 / (band_1p5_3 + 1e-12))
 
+    # Normalize PSD so entropy reflects spectral shape, not absolute amplitude.
     psd_norm = psd / np.sum(psd)
     spectral_entropy = -np.sum(psd_norm * np.log(psd_norm + 1e-12))
 
+    # Weighted spectral variance around mean frequency.
     freq_variance = np.sum(((freq - mean_freq)**2) * psd) / np.sum(psd)
 
     return {

@@ -1,3 +1,5 @@
+"""Shared RQA utilities for group parsing and neighborhood optimization."""
+
 from pyrqa.time_series import TimeSeries
 from pyrqa.settings import Settings
 from pyrqa.analysis_type import Classic
@@ -17,21 +19,24 @@ from pathlib import Path
 
 
 def load_optimal_params(optimal_params_file):
-    """
-    Load optimal parameters from CSV into a dictionary for quick lookup.
-    
-    Args:
-        optimal_params_file: path to optimal_params.csv
-    
-    Returns:
-        dict: {(category, affected_side, cop_type, eye_condition, axis): (tau, n, neighborhood)}
+    """Load subgroup optimal parameters from CSV.
+
+    Parameters
+    ----------
+    optimal_params_file : str or pathlib.Path
+        Path to ``optimal_params.csv``.
+
+    Returns
+    -------
+    dict
+        Mapping from subgroup key
+        ``(category, affected_side, cop_type, eye_condition, axis)``
+        to parameter tuple ``(tau, n, neighborhood)``.
     """
     df = pd.read_csv(optimal_params_file)
     params_dict = {}
     
     for _, row in df.iterrows():
-        # Create key: (category, affected_side, cop_type, eye_condition, axis)
-        # For healthy, affected_side is empty string
         key = (
             row['category'],
             str(row['affected_side']) if pd.notna(row['affected_side']) else '',
@@ -39,38 +44,40 @@ def load_optimal_params(optimal_params_file):
             row['eye'],
             row['axis']
         )
-        # Store values: (tau, n, neighborhood)
         params_dict[key] = (int(row['tau']), int(row['n']), float(row['neighborhood']))
     
     return params_dict
 
 def determine_group_from_path(file_path):
+    """Infer subgroup metadata from a sorted-data file path.
+
+    Parameters
+    ----------
+    file_path : pathlib.Path
+        Path to one sorted COP signal file.
+
+    Returns
+    -------
+    tuple or None
+        ``(category, affected_side, cop_type, eye_condition, axis)`` if the
+        expected folder structure is present, else ``None``.
     """
-    Determine the group (category, affected_side, cop_type, eye_condition, axis) from file path.
-    
-    Args:
-        file_path: Path object to the file
-    
-    Returns:
-        tuple: (category, affected_side, cop_type, eye_condition, axis)
-    """
+    # Parse directory hierarchy to recover the subgroup key used throughout
+    # parameter estimation and batch RQA computation.
     parts = file_path.parts
     
-    # Find indices in path
     if 'healthy' in parts:
         category = 'healthy'
         affected_side = ''
-        # Path structure: .../healthy/COP_type/eye_condition/axis/file.txt
         healthy_idx = parts.index('healthy')
-        cop_type = parts[healthy_idx + 1]  # COP1, COP2, or COP
+        cop_type = parts[healthy_idx + 1]
         eye_condition = parts[healthy_idx + 2]
         axis = parts[healthy_idx + 3]
     elif 'stroke' in parts:
         category = 'stroke'
-        # Path structure: .../stroke/affected_side/COP_type/eye_condition/axis/file.txt
         stroke_idx = parts.index('stroke')
-        affected_side = parts[stroke_idx + 1]  # left_affected or right_affected
-        cop_type = parts[stroke_idx + 2]  # COP1, COP2, or COP
+        affected_side = parts[stroke_idx + 1]
+        cop_type = parts[stroke_idx + 2]
         eye_condition = parts[stroke_idx + 3]
         axis = parts[stroke_idx + 4]
     else:
@@ -79,7 +86,26 @@ def determine_group_from_path(file_path):
     return (category, affected_side, cop_type, eye_condition, axis)
 
 def compute_rr(data_points, n, tau, eps, theiler_corrector = 1):
-    # create RP generator
+    """Compute recurrence rate for one candidate neighborhood radius.
+
+    Parameters
+    ----------
+    data_points : array-like
+        One-dimensional COP signal.
+    n : int
+        Embedding dimension.
+    tau : int
+        Embedding delay.
+    eps : float
+        Candidate neighborhood radius.
+    theiler_corrector : int, default 1
+        Theiler window used by pyrqa.
+
+    Returns
+    -------
+    float
+        Recurrence rate for the configured embedding and radius.
+    """
     time_series = TimeSeries(data_points,
                             embedding_dimension = n,
                             time_delay = tau)
@@ -93,24 +119,34 @@ def compute_rr(data_points, n, tau, eps, theiler_corrector = 1):
 
     R = result.recurrence_matrix
 
-    # recurrence rate
     RR = R.sum() / R.size
     return RR
 
-# Fixed version of find_opt_neighborhood - corrects parameter mismatch
+# Binary search over epsilon to match a target recurrence rate.
 def find_opt_neighborhood(data_points, n, tau, target_rr=0.05):
+    """Find neighborhood radius that approximates a target recurrence rate.
+
+    Parameters
+    ----------
+    data_points : array-like
+        One-dimensional COP signal.
+    n : int
+        Embedding dimension.
+    tau : int
+        Embedding delay.
+    target_rr : float, default 0.05
+        Target recurrence rate used in binary search.
+
+    Returns
+    -------
+    float
+        Estimated neighborhood radius.
+
+    Notes
+    -----
+    Uses a fixed 10-iteration binary search over ``[0, 1]``.
     """
-    Find optimal neighborhood radius using binary search to achieve target recurrence rate.
-    
-    Args:
-        data_points: numpy array of time series data
-        n: embedding dimension
-        tau: time delay
-        target_rr: target recurrence rate (default 0.05)
-    
-    Returns:
-        Optimal neighborhood radius
-    """
+    # Search interval chosen for normalized COP signals.
     low, high = 0, 1.0
     for i in range(10):
         mid = (low + high) / 2

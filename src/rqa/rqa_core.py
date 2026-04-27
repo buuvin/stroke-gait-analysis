@@ -1,3 +1,5 @@
+"""Core RQA execution helpers for per-file metric/plot generation."""
+
 from pathlib import Path
 from unittest import result
 from pyrqa.time_series import TimeSeries
@@ -13,15 +15,23 @@ from rqa.plotting import generate_rqa_plot
 
 
 def compute_rqa(file_path, optimal_params_dict, RQA_PLOTS_DIR):
+    """Compute RQA metrics and export a recurrence plot for one file.
+
+    Parameters
+    ----------
+    file_path : pathlib.Path
+        Path to one COP signal file.
+    optimal_params_dict : dict
+        Mapping from subgroup keys to ``(tau, n, neighborhood)`` tuples.
+    RQA_PLOTS_DIR : pathlib.Path
+        Root directory where recurrence-plot images are written.
+
+    Returns
+    -------
+    dict or None
+        Metrics dictionary with subgroup metadata, or ``None`` when the file
+        cannot be processed.
     """
-    Compute RQA metrics and generate plot for a single file using group-specific optimal parameters.
-    
-    Args:
-        file_path: Path to the data file
-        optimal_params_dict: Dictionary of optimal parameters by group
-        RQA_PLOTS_DIR: Directory to save plots
-    """
-    # Determine group from file path
     group = determine_group_from_path(file_path)
     if group is None:
         print(f"  WARNING: Could not determine group for {file_path.name}")
@@ -29,7 +39,6 @@ def compute_rqa(file_path, optimal_params_dict, RQA_PLOTS_DIR):
     
     category, affected_side, cop_type, eye_condition, axis = group
     
-    # Look up optimal parameters
     if group not in optimal_params_dict:
         print(f"  WARNING: No optimal parameters found for group {group} - file {file_path.name}")
         return None
@@ -40,7 +49,6 @@ def compute_rqa(file_path, optimal_params_dict, RQA_PLOTS_DIR):
     print(type(rqa_settings))
     rqa_metrics = calculate_rqa_metrics(rqa_settings, file_path.name)
 
-     # Add group information
     rqa_metrics['category'] = category
     rqa_metrics['affected_side'] = affected_side
     rqa_metrics['cop_type'] = cop_type
@@ -55,7 +63,6 @@ def compute_rqa(file_path, optimal_params_dict, RQA_PLOTS_DIR):
         plot_dir = RQA_PLOTS_DIR / category / affected_side / cop_type / eye_condition / axis
     
     plot_dir.mkdir(parents=True, exist_ok=True)
-    # Preserve original filename: e.g., "CK09_PSEC3_COP_X.txt" -> "CK09_PSEC3_COP_X.png"
     plot_path = plot_dir / file_path.name.replace('.txt', '.png')
     
     ImageGenerator.save_recurrence_plot(
@@ -67,23 +74,28 @@ def compute_rqa(file_path, optimal_params_dict, RQA_PLOTS_DIR):
 
 
 def compute_rqa_settings(file_path, tau, n, neighborhood):
-    """
-    Compute RQA metrics and generate plot for a single file using group-specific optimal parameters.
-    
-    Args:
-        file_path: Path to the data file
-        optimal_params_dict: Dictionary of optimal parameters by group
-        RQA_PLOTS_DIR: Directory to save plots
-    
-    Returns:
-        dict: RQA metrics with file information, or None if error
+    """Create a pyrqa ``Settings`` object for one signal.
+
+    Parameters
+    ----------
+    file_path : pathlib.Path
+        Path to one COP signal file.
+    tau : int
+        Embedding delay.
+    n : int
+        Embedding dimension.
+    neighborhood : float
+        Fixed radius used to define recurrent points.
+
+    Returns
+    -------
+    pyrqa.settings.Settings or None
+        Configured settings object, or ``None`` if setup fails.
     """
     try:
-        # Load data
         with open(file_path, 'r') as file:
             data_points = file.readlines()
         
-        # Create time series and settings with optimal parameters
         time_series = TimeSeries(data_points,
                                 embedding_dimension=n,
                                 time_delay=tau)

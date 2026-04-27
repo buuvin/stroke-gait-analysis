@@ -1,3 +1,10 @@
+"""Parameter-selection workflow for group-level RQA settings.
+
+This module estimates optimal embedding parameters for each experimental group
+in the sorted COP dataset. Parameters are estimated per file and then
+aggregated at the group level for downstream, fixed-parameter RQA analysis.
+"""
+
 import numpy as np
 import time
 import random
@@ -13,16 +20,22 @@ from config import RANDOM_SEED
 random.seed(RANDOM_SEED)
 np.random.seed(RANDOM_SEED)
 
-# Fixed version of find_opt_params - uses corrected find_opt_neighborhood
 def find_opt_params(data_file):
-    """
-    Find optimal RQA parameters for a single file.
-    
-    Args:
-        data_file: path to the data file (Path object or string)
-    
-    Returns:
-        tuple: (tau, n, neighborhood)
+    """Estimate per-file embedding and neighborhood parameters.
+
+    Parameters
+    ----------
+    data_file : str or pathlib.Path
+        Path to a single COP signal file.
+
+    Returns
+    -------
+    tuple[int, int, float]
+        Estimated ``(tau, n, neighborhood)`` for the input file.
+
+    Notes
+    -----
+    The signal is z-score normalized before parameter estimation.
     """
     print(f"Processing: {data_file}")
 
@@ -30,7 +43,8 @@ def find_opt_params(data_file):
         data_points = file.readlines()
     data_points = np.array(data_points, dtype=np.float64)
 
-    # Simple z-score normalization to reduce file-by-file amplitude variation
+    # Apply per-file z-score normalization before delay/FNN estimation so that
+    # neighborhood optimization is less sensitive to subject-specific amplitude.
     mean = np.mean(data_points)
     std = np.std(data_points)
     if std != 0:
@@ -48,23 +62,37 @@ def find_opt_params(data_file):
     
     return (tau, n, neighborhood)
 
-# Function to find and store optimal parameters for a specific group
 def find_group_optimal_params(group_files, category, cop_type, eye_condition, affected_side="", axis=""):
+    """Aggregate optimal parameters for one stratified subgroup.
+
+    Parameters
+    ----------
+    group_files : list[pathlib.Path]
+        File paths belonging to one subgroup.
+    category : str
+        Subject class label (for example ``"healthy"`` or ``"stroke"``).
+    cop_type : str
+        COP channel label (for example ``"COP1"``, ``"COP2"``, or ``"COP"``).
+    eye_condition : str
+        Visual condition label.
+    affected_side : str, default ""
+        Affected-side label for stroke groups.
+    axis : str, default ""
+        Signal axis label.
+
+    Returns
+    -------
+    dict or None
+        Dictionary of aggregated parameters for the subgroup, or ``None`` when
+        no valid file-level estimates are produced.
+
+    Notes
+    -----
+    Aggregation uses median for ``tau`` and neighborhood radius, and mode for
+    embedding dimension ``n``.
     """
-    Find optimal parameters for a group by averaging parameters from sampled files.
-    
-    Args:
-        group_files: list of file paths for this group
-        category: "healthy" or "stroke"
-        cop_type: "COP1", "COP2", or "COP"
-        eye_condition: "eyes_open" or "eyes_closed"
-        affected_side: "" for healthy, "left_affected" or "right_affected" for stroke
-        axis: "x" or "y"
-    
-    Returns:
-        dict with averaged optimal parameters
-    """
-    # Sample up to 30 files (or use all if fewer)
+    # Sample up to 30 files to keep computation bounded while preserving
+    # representative parameter estimates for each subgroup.
     sample_size = min(30, len(group_files))
     sampled_files = random.sample(group_files, sample_size) if len(group_files) > sample_size else group_files
     
@@ -77,7 +105,7 @@ def find_group_optimal_params(group_files, category, cop_type, eye_condition, af
     ns = []
     neighborhoods = []
     
-    # Find optimal parameters for each sampled file
+    # Estimate parameters file-by-file, then summarize robustly.
     for file_path in sampled_files:
         try:
             tau, n, neighborhood = find_opt_params(file_path)
@@ -92,15 +120,14 @@ def find_group_optimal_params(group_files, category, cop_type, eye_condition, af
         print(f"  WARNING: No valid parameters found for this group!")
         return None
     
-    # Aggregate parameters across sampled files:
-    # - τ (time delay): median
-    # - n (embedding dimension): mode (most frequent integer)
-    # - neighborhood: median
+    # Aggregate rules used for publication reproducibility:
+    # τ (time delay) -> median, n (embedding dimension) -> mode,
+    # neighborhood radius -> median.
     avg_tau = int(np.median(taus))
     avg_n = int(np.bincount(np.array(ns, dtype=int)).argmax())
     avg_neighborhood = float(np.median(neighborhoods))
     
-    # Round to reasonable precision
+    # Keep integer-valued embedding parameters explicit.
     avg_tau = int(round(avg_tau))
     avg_n = int(round(avg_n))
     
@@ -121,10 +148,23 @@ def find_group_optimal_params(group_files, category, cop_type, eye_condition, af
     }
 
 def extract_optimal_params(healthy_dir, stroke_dir):
+    """Estimate optimal RQA parameters for all healthy and stroke subgroups.
+
+    Parameters
+    ----------
+    healthy_dir : pathlib.Path
+        Root folder for healthy subgroup files.
+    stroke_dir : pathlib.Path
+        Root folder for stroke subgroup files.
+
+    Returns
+    -------
+    list[dict]
+        Aggregated parameter records for all detected subgroups.
+    """
     all_group_params = []
 
-    # Process HEALTHY groups
-    # Structure: healthy/COP_type/eye_condition/axis/
+    # Process healthy subgroups.
     print("\n" + "="*60)
     print("PROCESSING HEALTHY GROUPS")
     print("="*60)
@@ -132,26 +172,24 @@ def extract_optimal_params(healthy_dir, stroke_dir):
     for cop_dir in healthy_dir.iterdir():
         if not cop_dir.is_dir():
             continue
-        cop_type = cop_dir.name  # "COP1", "COP2", or "COP"
+        cop_type = cop_dir.name
         
         for eye_dir in cop_dir.iterdir():
             if not eye_dir.is_dir():
                 continue
-            eye_condition = eye_dir.name  # "eyes_open" or "eyes_closed"
+            eye_condition = eye_dir.name
             
             for axis_dir in eye_dir.iterdir():
                 if not axis_dir.is_dir():
                     continue
-                axis = axis_dir.name  # "x" or "y"
+                axis = axis_dir.name
                 
-                # Get all files in this group
                 group_files = list(axis_dir.glob("*.txt"))
                 
                 if len(group_files) == 0:
                     print(f"\nSkipping {cop_type}/{eye_condition}/{axis} - no files found")
                     continue
                 
-                # Find optimal parameters for this group
                 group_params = find_group_optimal_params(
                     group_files, 
                     category="healthy",
@@ -162,12 +200,10 @@ def extract_optimal_params(healthy_dir, stroke_dir):
                 )
                 
                 if group_params:
-                    # Add axis to the returned dict
                     group_params['axis'] = axis
                     all_group_params.append(group_params)
 
-    # Process STROKE groups
-    # Structure: stroke/affected_side/COP_type/eye_condition/axis/
+    # Process stroke subgroups.
     print("\n" + "="*60)
     print("PROCESSING STROKE GROUPS")
     print("="*60)
@@ -175,31 +211,29 @@ def extract_optimal_params(healthy_dir, stroke_dir):
     for affected_dir in stroke_dir.iterdir():
         if not affected_dir.is_dir():
             continue
-        affected_side = affected_dir.name  # "left_affected" or "right_affected"
+        affected_side = affected_dir.name
         
         for cop_dir in affected_dir.iterdir():
             if not cop_dir.is_dir():
                 continue
-            cop_type = cop_dir.name  # "COP1", "COP2", or "COP"
+            cop_type = cop_dir.name
             
             for eye_dir in cop_dir.iterdir():
                 if not eye_dir.is_dir():
                     continue
-                eye_condition = eye_dir.name  # "eyes_open" or "eyes_closed"
+                eye_condition = eye_dir.name
                 
                 for axis_dir in eye_dir.iterdir():
                     if not axis_dir.is_dir():
                         continue
-                    axis = axis_dir.name  # "x" or "y"
+                    axis = axis_dir.name
                     
-                    # Get all files in this group
                     group_files = list(axis_dir.glob("*.txt"))
                     
                     if len(group_files) == 0:
                         print(f"\nSkipping {affected_side}/{cop_type}/{eye_condition}/{axis} - no files found")
                         continue
                     
-                    # Find optimal parameters for this group
                     group_params = find_group_optimal_params(
                         group_files,
                         category="stroke",
@@ -209,13 +243,19 @@ def extract_optimal_params(healthy_dir, stroke_dir):
                     )
                     
                     if group_params:
-                        # Add axis to the returned dict
                         group_params['axis'] = axis
                         all_group_params.append(group_params)
     return all_group_params
 
 
 def main():
+    """Run subgroup parameter extraction and write ``optimal_params.csv``.
+
+    Returns
+    -------
+    None
+        This function writes outputs to disk and logs progress to stdout.
+    """
     optimal_params = extract_optimal_params(SORTED_HEALTHY, SORTED_STROKE)
     print("EXTRACTED OPTIMAL PARAMETERS")
 
@@ -235,7 +275,6 @@ def main():
     print(f"\n✓ Completed! Found optimal parameters for {len(optimal_params)} groups")
     print(f"✓ Results saved to: {optimal_params_file}")
 
-    # Display summary
     print("\n" + "="*60)
     print("SUMMARY OF OPTIMAL PARAMETERS")
     print("="*60)
@@ -244,6 +283,6 @@ def main():
             f"τ={params['tau']:3d} | n={params['n']:2d} | ε={params['neighborhood']:.6f}")
     
 
-#USED FOR TESTING
+# NOTE: Local debug entrypoint retained as commented code by design.
 # if __name__ == "__main__":
 #     main()

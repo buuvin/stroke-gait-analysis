@@ -1,3 +1,5 @@
+"""Utility functions for metadata parsing and nonlinear COP signal features."""
+
 from pathlib import Path
 import numpy as np
 
@@ -19,8 +21,23 @@ patient_side = {
 }
 
 def parse_metadata_from_filename(file_path, patient_side):
-    """
-    Extract labels and metadata from filename.
+    """Parse subject/condition metadata from a COP filename.
+
+    Parameters
+    ----------
+    file_path : str or pathlib.Path
+        Name or path of one COP text file.
+    patient_side : dict
+        Mapping from stroke subject ID to affected limb side.
+
+    Returns
+    -------
+    dict
+        Metadata fields used for feature records and merge keys.
+
+    Notes
+    -----
+    Healthy subjects are encoded with an empty ``affected_side`` string.
     """
     name = Path(file_path).name
 
@@ -36,6 +53,7 @@ def parse_metadata_from_filename(file_path, patient_side):
     elif subject_id.startswith("SUP"):
         label = 0  # healthy
         condition = "healthy"
+        # Keep empty string for healthy to match existing metadata conventions.
         affected_side = ""
     else:
         raise ValueError(f"Unknown subject type: {subject_id}")
@@ -76,6 +94,24 @@ def parse_metadata_from_filename(file_path, patient_side):
     }
 
 def band_power(freq, psd, fmin, fmax):
+    """Integrate spectral power within a frequency band.
+
+    Parameters
+    ----------
+    freq : numpy.ndarray
+        Frequency bins.
+    psd : numpy.ndarray
+        Power spectral density values aligned to ``freq``.
+    fmin : float
+        Lower frequency bound.
+    fmax : float
+        Upper frequency bound.
+
+    Returns
+    -------
+    float
+        Integrated band power between ``fmin`` and ``fmax``.
+    """
     mask = (freq >= fmin) & (freq <= fmax)
     if np.count_nonzero(mask) == 0:
         return 0.0
@@ -86,9 +122,37 @@ def band_power(freq, psd, fmin, fmax):
     return float(np.trapezoid(psd[mask], freq[mask]))
 
 def rms(data):
+    """Compute root-mean-square amplitude.
+
+    Parameters
+    ----------
+    data : array-like
+        Signal values.
+
+    Returns
+    -------
+    float
+        Root-mean-square value of the input signal.
+    """
     return np.sqrt(np.mean(data**2))
 
 def ApEn(U, m, r):
+    """Compute approximate entropy (ApEn).
+
+    Parameters
+    ----------
+    U : array-like
+        Input signal.
+    m : int
+        Embedding dimension for matching templates.
+    r : float
+        Tolerance threshold.
+
+    Returns
+    -------
+    float
+        Approximate entropy estimate.
+    """
     N = len(U)
 
     def _maxdist(x_i, x_j):
@@ -104,12 +168,30 @@ def ApEn(U, m, r):
     return abs(_phi(m) - _phi(m + 1))
 
 def sample_entropy(data, m=2, r_ratio=0.2):
+    """Compute sample entropy for a one-dimensional signal.
+
+    Parameters
+    ----------
+    data : array-like
+        Input signal.
+    m : int, default 2
+        Embedding dimension.
+    r_ratio : float, default 0.2
+        Tolerance ratio relative to signal standard deviation.
+
+    Returns
+    -------
+    float
+        Sample entropy estimate, or ``nan`` when counts are insufficient.
+    """
     data = np.asarray(data, dtype=np.float64)
     n = data.size
+    # Need at least m+2 points to compare templates of length m+1.
     if n <= m + 1:
         return np.nan
 
     r = r_ratio * np.std(data)
+    # Constant signals have zero tolerance and entropy is treated as zero.
     if r <= 0:
         return 0.0
 
@@ -136,8 +218,21 @@ def sample_entropy(data, m=2, r_ratio=0.2):
 
 
 def hurst_rs(data):
+    """Estimate Hurst exponent via rescaled-range method.
+
+    Parameters
+    ----------
+    data : array-like
+        Input signal.
+
+    Returns
+    -------
+    float
+        Hurst exponent estimate, or ``nan`` when not computable.
+    """
     data = np.asarray(data, dtype=np.float64)
     n = data.size
+    # Short records produce unstable R/S slopes.
     if n < 16:
         return np.nan
 
@@ -153,6 +248,18 @@ def hurst_rs(data):
 
 
 def dfa_alpha(data):
+    """Estimate DFA scaling exponent (alpha).
+
+    Parameters
+    ----------
+    data : array-like
+        Input signal.
+
+    Returns
+    -------
+    float
+        DFA alpha estimate, or ``nan`` when scale fitting is not feasible.
+    """
     data = np.asarray(data, dtype=np.float64)
     n = data.size
     if n < 32:
@@ -163,6 +270,7 @@ def dfa_alpha(data):
     if max_scale < 4:
         return np.nan
 
+    # Log-spaced scales avoid over-weighting either short or long windows.
     scales = np.unique(np.logspace(np.log10(4), np.log10(max_scale), num=8).astype(int))
     flucts = []
     valid_scales = []

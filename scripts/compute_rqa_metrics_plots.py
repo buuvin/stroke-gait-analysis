@@ -1,3 +1,11 @@
+"""End-to-end RQA batch pipeline.
+
+Pipeline stages:
+1) Estimate subgroup-specific optimal embedding parameters.
+2) Compute per-file RQA metrics using those fixed parameters.
+3) Export recurrence plots and sort them into reporting folders.
+"""
+
 from pyrqa.settings import Settings
 from pathlib import Path
 import shutil
@@ -9,6 +17,7 @@ from rqa.rqa_utils import load_optimal_params
 
 
 
+# Stage 1: estimate subgroup-level optimal parameters.
 optimal_params = extract_optimal_params(SORTED_HEALTHY, SORTED_STROKE)
 print("EXTRACTED OPTIMAL PARAMETERS")
 
@@ -28,7 +37,7 @@ with open(optimal_params_file, 'a') as f:
 print(f"\n✓ Completed! Found optimal parameters for {len(optimal_params)} groups")
 print(f"✓ Results saved to: {optimal_params_file}")
 
-# Display summary
+# Display summary for auditability in console logs.
 print("\n" + "="*60)
 print("SUMMARY OF OPTIMAL PARAMETERS")
 print("="*60)
@@ -37,14 +46,14 @@ for params in optimal_params:
         f"τ={params['tau']:3d} | n={params['n']:2d} | ε={params['neighborhood']:.6f}")
     
 
-#GENERATE RQA PLOTS AND METRICS FOR ALL FILES USING OPTIMAL PARAMETERS
+# Stage 2: generate RQA metrics/plots using fixed subgroup parameters.
 
 # Load optimal parameters
 print("Loading optimal parameters...")
 optimal_params_dict = load_optimal_params(OPTIMAL_PARAMS_FILE)
 print(f"Loaded optimal parameters for {len(optimal_params_dict)} groups\n")
 
-# Initialize metrics file with header
+# Initialize metrics file with a stable schema used by downstream merges.
 with open(RQA_METRICS_FILE, 'w') as f:
     f.write("filename,category,affected_side,cop_type,eye_condition,axis,")
     f.write("recurrence_rate,determinism,laminarity,entropy_diagonal_lines,max_diag_line,")
@@ -54,7 +63,7 @@ all_metrics = []
 total_files = 0
 processed_files = 0
 
-# Process all files in sorted directory structure
+# Iterate all sorted files and compute RQA outputs.
 print("="*60)
 print("PROCESSING ALL FILES")
 print("="*60)
@@ -115,7 +124,7 @@ for affected_dir in (SORTED_STROKE).iterdir():
                         if processed_files % 50 == 0:
                             print(f"  Processed {processed_files} files...")
 
-# Write all metrics to CSV
+# Persist all per-file RQA metrics.
 print("\n" + "="*60)
 print("WRITING METRICS TO CSV")
 print("="*60)
@@ -139,7 +148,7 @@ print(f"  Successfully processed: {processed_files}")
 print(f"  Metrics saved to: {RQA_METRICS_FILE}")
 print(f"  Plots saved to: {RAW_PLOTS}")
 
-# SORT RQA PLOTS
+# Stage 3: sort generated plot images into presentation-friendly folders.
 
 src_dir = RAW_PLOTS
 dst_root = SORTED_PLOTS

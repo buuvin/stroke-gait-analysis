@@ -1,6 +1,22 @@
+"""Utilities for extracting canonical RQA statistics from pyrqa results."""
+
 from pyrqa.computation import RQAComputation
 
 def extract_rqa_metrics(result, filename = ""):
+    """Map pyrqa outputs into the project metrics schema.
+
+    Parameters
+    ----------
+    result : object
+        pyrqa computation result object with metric attributes.
+    filename : str, default ""
+        Source filename associated with the result.
+
+    Returns
+    -------
+    dict
+        Flat metric record suitable for CSV export.
+    """
     return {
         "filename" : filename,
         "recurrence_rate": result.recurrence_rate,
@@ -19,6 +35,20 @@ def extract_rqa_metrics(result, filename = ""):
     }
 
 def calculate_rqa_metrics(settings, file_name):
+    """Run RQA computation and extract standardized metrics.
+
+    Parameters
+    ----------
+    settings : pyrqa.settings.Settings
+        Configured pyrqa settings object for one signal.
+    file_name : str
+        File label used for logging and output metadata.
+
+    Returns
+    -------
+    dict or None
+        Metrics dictionary on success, else ``None`` if computation fails.
+    """
     try:
         computation = RQAComputation.create(settings, verbose=False)
         result = computation.run()

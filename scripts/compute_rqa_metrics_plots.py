@@ -9,32 +9,32 @@ from rqa.rqa_utils import load_optimal_params
 
 
 
-# optimal_params = extract_optimal_params(SORTED_HEALTHY, SORTED_STROKE)
-# print("EXTRACTED OPTIMAL PARAMETERS")
+optimal_params = extract_optimal_params(SORTED_HEALTHY, SORTED_STROKE)
+print("EXTRACTED OPTIMAL PARAMETERS")
 
-# optimal_params_file = EXTRACTED / "optimal_params.csv"
-# with open(optimal_params_file, 'w') as f:
-#     f.write("category,cop_type,affected_side,eye,axis,tau,n,neighborhood,num_files\n")
+optimal_params_file = EXTRACTED / "optimal_params.csv"
+with open(optimal_params_file, 'w') as f:
+    f.write("category,cop_type,affected_side,eye,axis,tau,n,neighborhood,num_files\n")
 
-# print("WRITING RESULTS TO CSV")
-# print("="*60)
+print("WRITING RESULTS TO CSV")
+print("="*60)
 
-# with open(optimal_params_file, 'a') as f:
-#     for params in optimal_params:
-#         f.write(f"{params['category']},{params['cop_type']},{params['affected_side']},")
-#         f.write(f"{params['eye']},{params['axis']},{params['tau']},{params['n']},")
-#         f.write(f"{params['neighborhood']:.6f},{params['num_files_processed']}\n")
+with open(optimal_params_file, 'a') as f:
+    for params in optimal_params:
+        f.write(f"{params['category']},{params['cop_type']},{params['affected_side']},")
+        f.write(f"{params['eye']},{params['axis']},{params['tau']},{params['n']},")
+        f.write(f"{params['neighborhood']:.6f},{params['num_files_processed']}\n")
 
-# print(f"\n✓ Completed! Found optimal parameters for {len(optimal_params)} groups")
-# print(f"✓ Results saved to: {optimal_params_file}")
+print(f"\n✓ Completed! Found optimal parameters for {len(optimal_params)} groups")
+print(f"✓ Results saved to: {optimal_params_file}")
 
-# # Display summary
-# print("\n" + "="*60)
-# print("SUMMARY OF OPTIMAL PARAMETERS")
-# print("="*60)
-# for params in optimal_params:
-#     print(f"{params['category']:8s} | {params['affected_side']:15s} | {params['cop_type']:5s} | {params['eye']:12s} | {params['axis']:3s} | "
-#         f"τ={params['tau']:3d} | n={params['n']:2d} | ε={params['neighborhood']:.6f}")
+# Display summary
+print("\n" + "="*60)
+print("SUMMARY OF OPTIMAL PARAMETERS")
+print("="*60)
+for params in optimal_params:
+    print(f"{params['category']:8s} | {params['affected_side']:15s} | {params['cop_type']:5s} | {params['eye']:12s} | {params['axis']:3s} | "
+        f"τ={params['tau']:3d} | n={params['n']:2d} | ε={params['neighborhood']:.6f}")
     
 
 #GENERATE RQA PLOTS AND METRICS FOR ALL FILES USING OPTIMAL PARAMETERS

@@ -66,6 +66,7 @@ def parse_metadata_from_filename(file_path, patient_side):
 
     return {
         "filename": name,
+        "subject_id": subject_id,
         "label": label,
         "category": condition,
         "eye_condition": eyes,

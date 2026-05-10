@@ -1,8 +1,8 @@
-# stroke-gait-analysis
+# stroke postural stability analysis
 
 This repository contains code used to reproduce the analyses presented in:
 
-> "PAPER TITLE" (under review)
+> Dual-Forceplate Center of Pressure Analysis Reveals Limb-Specific Postural Impairments in Stroke Survivors: A Nonlinear Machine Learning and Deep Learning Classification Approach
 
 ## Structure
 This repository will be organized to separate:
